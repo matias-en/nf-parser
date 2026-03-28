@@ -33,6 +33,7 @@ data/
 *.xml
 *.xlsx
 *.csv
+*.zip
 
 # --- Configurações de IDE ---
 .vscode/
