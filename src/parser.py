@@ -1,12 +1,15 @@
-#Aqui estou falando para o código trazer a ferramenta da caixa de ferramentas (import - tras a caixa, from especifica o item)
 from lxml import etree
 from pathlib import Path
+from excel_gen import salvar_excel
 
-# Aqui estou descrevendo o caminho base para o projeto. __file__ é o arquivo atual
-# .parent.parente volta duas pastas.
-# .resolve pega o endereço absoluto do C://
+# Diretórios
 base_dir = Path(__file__).resolve().parent.parent
 input_dir = base_dir / "data" / "input"
+output_dir = base_dir / "data" / "output"
+
+# Cria a pasta output em caso de não existência.
+output_dir.mkdir(parents=True, exist_ok=True)
+
 arquivos = list(input_dir.glob("*.xml"))
 
 # Dicionário de apelidos
@@ -20,34 +23,36 @@ def carregar_xml(caminho_arquivo):
 # Aqui onde iremos ler os arquivos e buscar as informações que desejamos, usando __name__ == "__main__" para executar esse arquivo por enquanto
 if __name__ == "__main__":
     if arquivos:
-        nota_atual = arquivos[0]
-        print(f"Lendo arquivos: {nota_atual.name}")
+        print(f"Encontrei {len(arquivos)} arquivos. \nIniciando o processamento.")
 
-        # Abrir a nota fiscal
-        arvore = carregar_xml(nota_atual)
-        # Buscar o número da NFSe
-        buscar_numero = arvore.xpath('//nfse_sped:nNFSe/text()', namespaces=nfse_nacional)
-        # Buscar o nome do Prestador
-        buscar_prestador = arvore.xpath('//nfse_sped:emit/nfse_sped:xNome/text()', namespaces=nfse_nacional)
-        # Buscar o valor líquido
-        buscar_valorliq = arvore.xpath('//nfse_sped:valores/nfse_sped:vLiq/text()', namespaces=nfse_nacional)
-        # Buscar tomador, desafio do curso.
-        buscar_tomador = arvore.xpath('//nfse_sped:toma/nfse_sped:xNome/text()', namespaces=nfse_nacional)
+        lista_final = []
 
-        # Mostrar os resultados
-        if buscar_numero:
-            print(f"Número da NFSe é {buscar_numero[0]}")
+        for nota_atual in arquivos:
+            arvore = carregar_xml(nota_atual)
 
-        if buscar_prestador:
-            print(f"Nome do Prestador é {buscar_prestador[0]}")
+            numero = arvore.xpath('//nfse_sped:nNFSe/text()', namespaces=nfse_nacional)
+            prestador_nfse = arvore.xpath('//nfse_sped:emit/nfse_sped:xNome/text()', namespaces=nfse_nacional)
+            vr_total = arvore.xpath('//nfse_sped:valores/nfse_sped:vServPrest/nfse_sped:vServ/text()', namespaces=nfse_nacional)
+            vr_liquido = arvore.xpath('//nfse_sped:valores/nfse_sped:vLiq/text()', namespaces=nfse_nacional)
 
-        if buscar_valorliq:
-            print(f"Valor líquido da operação é {buscar_valorliq[0]}")
-        # Aqui está irá retornar como texto, deixarei essa notação para resolver posteriormente conforme aprendizado.
+            if numero and prestador_nfse and vr_total and vr_liquido:
+               
+                vr_total_num = float(vr_total[0]) #Ele vai ler somente quando houver . no lugar da virgula, proxima aula resolveremos esse problema.
+                vr_liquido_num = float(vr_liquido[0])
+               
+                dados_nota = {
 
-        if buscar_tomador:
-            print(f"Nome do tomador é {buscar_tomador[0]}")
-
+                    "Numero": numero[0],
+                    "Prestador": prestador_nfse[0],
+                    "Valor_Total": vr_total_num,
+                    "Valor_Liquido": vr_liquido_num
+                }
+                
+                lista_final.append(dados_nota)
+        
+        print("\nProcessamento concluído")
+        excel_dir = output_dir / "relatorio_notas.xlsx"
+        salvar_excel(lista_final, nome_arquivo=excel_dir)
     else:
-        print("Não encontrei nenhum item na pasta.")
+        print("Nenhum arquivo XML encontrado na pasta data/input.")
 
