@@ -1,6 +1,7 @@
 from lxml import etree
 from pathlib import Path
 from excel_gen import salvar_excel
+from datetime import datetime
 
 # Diretórios
 base_dir = Path(__file__).resolve().parent.parent
@@ -31,21 +32,34 @@ if __name__ == "__main__":
             arvore = carregar_xml(nota_atual)
 
             numero = arvore.xpath('//nfse_sped:nNFSe/text()', namespaces=nfse_nacional)
+            data_competencia = arvore.xpath('//nfse_sped:dCompet/text()', namespaces=nfse_nacional)
+            id_prestador = arvore.xpath('//nfse_sped:emit/nfse_sped:CNPJ/text()', namespaces=nfse_nacional)
             prestador_nfse = arvore.xpath('//nfse_sped:emit/nfse_sped:xNome/text()', namespaces=nfse_nacional)
+            id_tomador = arvore.xpath('//nfse_sped:toma/nfse_sped:CPF/text()', namespaces=nfse_nacional)
+            tomador_nfse = arvore.xpath('//nfse_sped:toma/nfse_sped:xNome/text()', namespaces=nfse_nacional)
             vr_total = arvore.xpath('//nfse_sped:valores/nfse_sped:vServPrest/nfse_sped:vServ/text()', namespaces=nfse_nacional)
             vr_liquido = arvore.xpath('//nfse_sped:valores/nfse_sped:vLiq/text()', namespaces=nfse_nacional)
 
-            if numero and prestador_nfse and vr_total and vr_liquido:
+            if numero and data_competencia and prestador_nfse and vr_total and vr_liquido and id_prestador and id_tomador:
                
                 vr_total_num = float(vr_total[0]) #Ele vai ler somente quando houver . no lugar da virgula, proxima aula resolveremos esse problema.
                 vr_liquido_num = float(vr_liquido[0])
-               
+                
+                try:
+                    data = datetime.strptime(data_competencia[0], "%Y-%m-%d").date()
+                except ValueError:
+                    data = data_competencia[0]       
+
                 dados_nota = {
 
                     "Numero": numero[0],
-                    "Prestador": prestador_nfse[0],
-                    "Valor_Total": vr_total_num,
-                    "Valor_Liquido": vr_liquido_num
+                    "Data": data,
+                    "CNPJ/CPF Prestador": id_prestador[0],
+                    "Razão Prestador": prestador_nfse[0],
+                    "CNPJ/CPF Tomador": id_tomador[0],
+                    "Razão Tomador": tomador_nfse[0],
+                    "Valor Total": vr_total_num,
+                    "Valor Liquido": vr_liquido_num
                 }
                 
                 lista_final.append(dados_nota)
