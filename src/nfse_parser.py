@@ -3,17 +3,15 @@ from pathlib import Path
 from excel_gen import salvar_excel
 from datetime import datetime
 
-# Diretórios
+# Configurações de pastas
 base_dir = Path(__file__).resolve().parent.parent
 input_dir = base_dir / "data" / "input"
 output_dir = base_dir / "data" / "output"
 
-# Cria a pasta output em caso de não existência.
+# Cria a pasta output em caso não exista.
 output_dir.mkdir(parents=True, exist_ok=True)
 
 arquivos = list(input_dir.glob("*.xml"))
-
-# Dicionário de apelidos
 nfse_nacional = {'nfse_sped': 'http://www.sped.fazenda.gov.br/nfse'}
 
 # Aqui cria uma "receita de bolo" de como ler o xml e transformar ele em um formato melhor para navegar "arvore".
@@ -21,54 +19,79 @@ def carregar_xml(caminho_arquivo):
     parser = etree.XMLParser(remove_blank_text=True)
     return etree.parse(str(caminho_arquivo), parser)
 
-# Aqui onde iremos ler os arquivos e buscar as informações que desejamos, usando __name__ == "__main__" para executar esse arquivo por enquanto
 if __name__ == "__main__":
     if arquivos:
         print(f"Encontrei {len(arquivos)} arquivos. \nIniciando o processamento.")
-
         lista_final = []
 
         for nota_atual in arquivos:
             arvore = carregar_xml(nota_atual)
 
-            numero = arvore.xpath('//nfse_sped:nNFSe/text()', namespaces=nfse_nacional)
-            data_competencia = arvore.xpath('//nfse_sped:dCompet/text()', namespaces=nfse_nacional)
-            id_prestador = arvore.xpath('//nfse_sped:emit/nfse_sped:CNPJ/text()', namespaces=nfse_nacional)
-            prestador_nfse = arvore.xpath('//nfse_sped:emit/nfse_sped:xNome/text()', namespaces=nfse_nacional)
-            id_tomador = arvore.xpath('//nfse_sped:toma/nfse_sped:CPF/text()', namespaces=nfse_nacional)
-            tomador_nfse = arvore.xpath('//nfse_sped:toma/nfse_sped:xNome/text()', namespaces=nfse_nacional)
-            vr_total = arvore.xpath('//nfse_sped:valores/nfse_sped:vServPrest/nfse_sped:vServ/text()', namespaces=nfse_nacional)
-            issqn = arvore.xpath('//nfse_sped:valores/nfse_sped:vISSQN/text()', namespaces=nfse_nacional)
-            issqn_aliq = arvore.xpath('//nfse_sped:valores/nfse_sped:pAliqAplic/text()', namespaces=nfse_nacional)
-            issret = arvore.xpath('//nfse_sped:tribMun/nfse_sped:tpRetISSQN/text()', namespaces=nfse_nacional)
-            vr_liquido = arvore.xpath('//nfse_sped:valores/nfse_sped:vLiq/text()', namespaces=nfse_nacional)
+            def limpar_int(xpath_str):
+                res = arvore.xpath(xpath_str, namespaces=nfse_nacional)
+                if res:
+                    texto_limpo = res[0].strip()
+                    return int(texto_limpo) if texto_limpo.isdigit() else 0
+                return 0
 
-            if numero and data_competencia and prestador_nfse and vr_total and issqn and issqn_aliq and issret and vr_liquido and id_prestador and id_tomador:
-               
-                vr_total_num = float(vr_total[0]) #Ele vai ler somente quando houver . no lugar da virgula, proxima aula resolveremos esse problema.
-                vr_liquido_num = float(vr_liquido[0])
-                issqn_aliq_num = float(issqn_aliq[0]) / 100
-                issqn_num = float(issqn[0])
-                issret_num = float(issret[0])
-                
+            def pegar_valor(xpath_str):
+                res = arvore.xpath(xpath_str, namespaces=nfse_nacional)
+                return res[0] if res else ""
+
+            def limpar_num(xpath_str):
+                res = arvore.xpath(xpath_str, namespaces=nfse_nacional)
+                if res:
+                    return float(res[0].replace(',', '.'))
+                return 0.0
+            
+            # Busca os dados do número e data de competência da NFSe.
+            numero = limpar_int('//nfse_sped:nNFSe/text()')
+            data_competencia = pegar_valor('//nfse_sped:dCompet/text()')
+        
+            # Busca os dados de CNPJ ou CPF e nome do Prestador.
+            doc_p = pegar_valor('//nfse_sped:emit/nfse_sped:CNPJ/text()') or pegar_valor('//nfse_sped:emit//nfse_sped:CPF/text()')
+            nome_p = pegar_valor('//nfse_sped:emit/nfse_sped:xNome/text()')
+
+            # Busca os dados de CNPJ ou CPF e nome do Tomador.
+            doc_t = pegar_valor('//nfse_sped:toma/nfse_sped:CNPJ/text()') or pegar_valor('//nfse_sped:toma/nfse_sped:CPF/text()')
+            nome_t = pegar_valor('//nfse_sped:toma/nfse_sped:xNome/text()')
+        
+            # Busca os valores de serviço e impostos.
+            v_total = limpar_num('//nfse_sped:valores/nfse_sped:vServPrest/nfse_sped:vServ/text()')
+            v_issqn = limpar_num('//nfse_sped:valores/nfse_sped:vISSQN/text()')
+            aliq = limpar_num('//nfse_sped:valores/nfse_sped:pAliqAplic/text()') / 100
+            v_liq = limpar_num('//nfse_sped:valores/nfse_sped:vLiq/text()')
+            # v_irrf = limpar_num('//nfse_sped:valores/nfse_sped:vIRRF/text()') Preciso Ler a nota técnica para ver qual nome do campo.
+            # v_cpp = limpar_num('//nfse_sped:valores/nfse_sped:vCP/text()') Preciso Ler a nota técnica para ver qual nome do campo.
+            # v_csll = limpar_num('//nfse_sped:valores/nfse_sped:vCSLL/text()') Preciso Ler a nota técnica para ver qual nome do campo.
+
+            
+            # Busca a informação se o ISS é retido e retorna indicando Sim ou Não, conforme nota técnica da RFB.
+            ret_cod = pegar_valor('//nfse_sped:tribMun/nfse_sped:tpRetISSQN/text()')
+            ret_texto = "Sim" if ret_cod == "2" else "Não"
+
+            if numero and data_competencia:
                 try:
-                    data = datetime.strptime(data_competencia[0], "%Y-%m-%d").date()
-                except ValueError:
-                    data = data_competencia[0]       
+                    data_final = datetime.strptime(data_competencia, "%Y-%m-%d").date()
+                except:
+                    data_final = data_competencia
 
                 dados_nota = {
 
-                    "Numero": numero[0],
-                    "Data": data,
-                    "CNPJ/CPF Prestador": id_prestador[0],
-                    "Razão Prestador": prestador_nfse[0],
-                    "CNPJ/CPF Tomador": id_tomador[0],
-                    "Razão Tomador": tomador_nfse[0],
-                    "Valor Total": vr_total_num,
-                    "Aliq ISSQN": issqn_aliq_num,
-                    "ISSQN": issqn_num,
-                    "ISSQN Retido": issret_num,
-                    "Valor Liquido": vr_liquido_num
+                    "Numero": numero,
+                    "Data": data_final,
+                    "CNPJ/CPF Prestador": doc_p,
+                    "Razão Prestador": nome_p,
+                    "CNPJ/CPF Tomador": doc_t,
+                    "Razão Tomador": nome_t,
+                    "Valor Total": v_total,
+                    "Aliq ISSQN": aliq,
+                    "ISSQN": v_issqn,
+                    "ISSQN Retido": ret_texto,
+                    #"IRRF": v_irrf
+                    #"CPP": v_cpp
+                    #"CSRF": v_csll
+                    "Valor Liquido": v_liq
                 }
                 
                 lista_final.append(dados_nota)
