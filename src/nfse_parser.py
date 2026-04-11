@@ -38,12 +38,18 @@ if __name__ == "__main__":
             id_tomador = arvore.xpath('//nfse_sped:toma/nfse_sped:CPF/text()', namespaces=nfse_nacional)
             tomador_nfse = arvore.xpath('//nfse_sped:toma/nfse_sped:xNome/text()', namespaces=nfse_nacional)
             vr_total = arvore.xpath('//nfse_sped:valores/nfse_sped:vServPrest/nfse_sped:vServ/text()', namespaces=nfse_nacional)
+            issqn = arvore.xpath('//nfse_sped:valores/nfse_sped:vISSQN/text()', namespaces=nfse_nacional)
+            issqn_aliq = arvore.xpath('//nfse_sped:valores/nfse_sped:pAliqAplic/text()', namespaces=nfse_nacional)
+            issret = arvore.xpath('//nfse_sped:tribMun/nfse_sped:tpRetISSQN/text()', namespaces=nfse_nacional)
             vr_liquido = arvore.xpath('//nfse_sped:valores/nfse_sped:vLiq/text()', namespaces=nfse_nacional)
 
-            if numero and data_competencia and prestador_nfse and vr_total and vr_liquido and id_prestador and id_tomador:
+            if numero and data_competencia and prestador_nfse and vr_total and issqn and issqn_aliq and issret and vr_liquido and id_prestador and id_tomador:
                
                 vr_total_num = float(vr_total[0]) #Ele vai ler somente quando houver . no lugar da virgula, proxima aula resolveremos esse problema.
                 vr_liquido_num = float(vr_liquido[0])
+                issqn_aliq_num = float(issqn_aliq[0]) / 100
+                issqn_num = float(issqn[0])
+                issret_num = float(issret[0])
                 
                 try:
                     data = datetime.strptime(data_competencia[0], "%Y-%m-%d").date()
@@ -59,6 +65,9 @@ if __name__ == "__main__":
                     "CNPJ/CPF Tomador": id_tomador[0],
                     "Razão Tomador": tomador_nfse[0],
                     "Valor Total": vr_total_num,
+                    "Aliq ISSQN": issqn_aliq_num,
+                    "ISSQN": issqn_num,
+                    "ISSQN Retido": issret_num,
                     "Valor Liquido": vr_liquido_num
                 }
                 

@@ -48,3 +48,5 @@ Thumbs.db
 # --- Variáveis de Ambiente ---
 .env
 .venv
+
+rascunho/
