@@ -1,6 +1,7 @@
 from pathlib import Path
 from src.loader import listar_xmls, carregar_xml #, mover_arquivos
-from src.nfse_parser import extrair_dados
+from src.nfse_parser import extrair_dados as extrair_nfse
+from src.nfe_parser import extrair_dados as extrair_nfe
 from src.excel_gen import salvar_excel
 
 # Configuração das pastas.
@@ -18,19 +19,33 @@ if __name__ == "__main__":
 
     if arquivos:
         print(f"✅ Encontrei {len(arquivos)} arquivos. \n🚀 Iniciando o processamento...")
-        lista_final = []
+        lista_nfse = [] 
+        lista_nfe = []
 
         for nota_atual in arquivos:
             arvore = carregar_xml(nota_atual)
-            dados_nota = extrair_dados(arvore)
-            lista_final.append(dados_nota)
+
+            if arvore.xpath('//*[local-name()="infNFSe"]'):
+                dados_nfse = extrair_nfse(arvore)
+                lista_nfse.append(dados_nfse)
+                print(f"🏢 {nota_atual.name} -> Processada como SERVIÇO")
+
+            else:
+                dados_nfe = extrair_nfe(arvore)
+                lista_nfe.append(dados_nfe)
+                print(f"📦 {nota_atual.name} -> Processada como MERCADORIA")
     
         print("\n🏁 Processamento concluído!")
+
+        dados_para_excel = {
+            "Serviços (NFSe)": lista_nfse,
+            "Mercadorias (NFe)": lista_nfe
+        }
 
         # mover_arquivos(nota_atual, processados_dir)
 
         caminho_excel = output_dir / "relatorio_notas.xlsx"
-        salvar_excel(lista_final, nome_arquivo=caminho_excel)
+        salvar_excel(dados_para_excel, nome_arquivo=caminho_excel)
         
     else:
         print("❌ Nenhum arquivo XML encontrado na pasta data/input.")

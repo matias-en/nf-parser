@@ -1,11 +1,13 @@
 import pandas as pd
 
-def salvar_excel(lista_dados, nome_arquivo="relatorio_notas.xlsx", nome_aba="Serviços"):
+def salvar_excel(dicionario_aba, nome_arquivo):
     
-    if lista_dados:
-        df = pd.DataFrame(lista_dados)
-        df.to_excel(nome_arquivo, index=False, sheet_name=nome_aba)
+    with pd.ExcelWriter(nome_arquivo) as writer:
+        for nome_aba, dados in dicionario_aba.items():
+            if dados:
+                df = pd.DataFrame(dados)
+                df.to_excel(writer, sheet_name=nome_aba, index=False)
+                print(f"📊 Aba '{nome_aba}' gerada com {len(dados)} registros.")
 
-        print(f"\n✅ SUCESSO: Arquivo '{nome_arquivo}' gerado com {len(df)} notas.")
-    else:
-        print("\n ⚠️ AVISO: Nenhuma nota foi processada, então não criei o Excel.")
+
+    print(f"\n✅ Relatório completo gerado em: {nome_arquivo}")

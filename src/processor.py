@@ -2,7 +2,6 @@ from datetime import datetime
 
 def limpar_num(lista_xpath):
 
-    # Trata vírgulas, converte para float e garante 0.0 se estiver vazio.
     if lista_xpath:
         try:
             return float(lista_xpath[0].replace(',', '.'))
@@ -12,7 +11,6 @@ def limpar_num(lista_xpath):
 
 def limpar_int(lista_xpath):
 
-    # Garante que o valor seja um número inteiro.
     if lista_xpath:
         try:
             texto = lista_xpath[0].strip()
@@ -22,7 +20,6 @@ def limpar_int(lista_xpath):
     return 0
 
 def formatar_data(lista_xpath):
-    # Converte o texto da competência em um objeto de data do Python.
     
     if lista_xpath:
         try:
