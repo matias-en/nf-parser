@@ -21,9 +21,17 @@ def limpar_int(lista_xpath):
 
 def formatar_data(lista_xpath):
     
-    if lista_xpath:
-        try:
-            return datetime.strptime(lista_xpath[0], "%Y-%m-%d").date()
-        except:
-            return lista_xpath[0]
-    return None
+    if not lista_xpath:
+        return None
+    
+    data_bruta = lista_xpath[0] 
+    
+    try:
+        
+        data_obj = datetime.fromisoformat(data_bruta)
+
+        return data_obj.date()
+    
+    except Exception:
+            
+            return data_bruta[:10]

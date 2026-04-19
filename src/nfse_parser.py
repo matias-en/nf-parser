@@ -18,6 +18,9 @@ def extrair_dados(arvore):
     def buscar_data(xpath_str):
         return formatar_data(arvore.xpath(xpath_str, namespaces=nfse_nacional))
     
+    chave_bruta = pegar_valor('//nfse_sped:infNFSe/@Id')
+    chave_nfse = "".join(filter(str.isdigit, chave_bruta))
+
     numero_nfse = buscar_int('//nfse_sped:nNFSe/text()')
     data_final = buscar_data('//nfse_sped:dCompet/text()')
         
@@ -31,9 +34,9 @@ def extrair_dados(arvore):
     v_issqn = buscar_num('//nfse_sped:valores/nfse_sped:vISSQN/text()')
     aliq = buscar_num('//nfse_sped:valores/nfse_sped:pAliqAplic/text()') / 100
     v_liq = buscar_num('//nfse_sped:valores/nfse_sped:vLiq/text()')
-    # v_irrf = buscar_num('//nfse_sped:valores/nfse_sped:vIRRF/text()') Preciso Ler a nota técnica para ver qual nome do campo.
-    v_cpp = buscar_num('//nfse_sped:tribFed/nfse_sped:vRetCP/text()')
-    #v_csll = buscar_num('//nfse_sped:valores/nfse_sped:vRetCSLL/text()') Preciso Ler a nota técnica para ver qual nome do campo.
+    r_irrf = buscar_num('//nfse_sped:tribFed/nfse_sped:vRetIRRF/text()')
+    r_cpp = buscar_num('//nfse_sped:tribFed/nfse_sped:vRetCP/text()')
+    r_csll = buscar_num('//nfse_sped:tribFed/nfse_sped:vRetCSLL/text()')
 
     ret_cod = pegar_valor('//nfse_sped:tribMun/nfse_sped:tpRetISSQN/text()')
     ret_texto = "Sim" if ret_cod == "2" else "Não"
@@ -50,10 +53,11 @@ def extrair_dados(arvore):
         "Aliq ISSQN": aliq,
         "ISSQN": v_issqn,
         "ISSQN Retido": ret_texto,
-        #"IRRF": v_irrf
-        "CPP": v_cpp,
-        #"CSRF": v_csll,
-        "Valor Líquido": v_liq
+        "IRRF": r_irrf,
+        "CPP": r_cpp,
+        "CSRF": r_csll,
+        "Valor Líquido": v_liq,
+        "Chave": chave_nfse
     }
     
     return dados_nfse
