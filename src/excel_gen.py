@@ -1,13 +1,26 @@
 import pandas as pd
 
-def salvar_excel(dicionario_aba, nome_arquivo):
+
+def salvar_excel(dicionario_dados, nome_arquivo):
     
-    with pd.ExcelWriter(nome_arquivo) as writer:
-        for nome_aba, dados in dicionario_aba.items():
-            if dados:
-                df = pd.DataFrame(dados)
-                df.to_excel(writer, sheet_name=nome_aba, index=False)
-                print(f"📊 Aba '{nome_aba}' gerada com {len(dados)} registros.")
+    escreveu_pelo_menos_uma_aba = False
 
+    with pd.ExcelWriter(nome_arquivo, engine='openpyxl') as writer:
+        for aba, dados in dicionario_dados.items():
 
-    print(f"\n✅ Relatório completo gerado em: {nome_arquivo}")
+            
+            tem_conteudo = False
+            if isinstance(dados, pd.DataFrame):
+                tem_conteudo = not dados.empty
+            elif isinstance(dados, list):
+                tem_conteudo = len(dados) > 0
+
+            if tem_conteudo:
+                
+                df = dados if isinstance(dados, pd.DataFrame) else pd.DataFrame(dados)
+                df.to_excel(writer, sheet_name=aba, index=False)
+                escreveu_pelo_menos_uma_aba = True
+
+        if not escreveu_pelo_menos_uma_aba:
+            pd.DataFrame([{"Status": "Nenhum dado válido encontrado neste lote"}]).to_excel(writer, sheet_name="Aviso",
+                                                                                            index=False)
