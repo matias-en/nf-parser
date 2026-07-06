@@ -32,7 +32,7 @@ Projeto pessoal em desenvolvimento contínuo. A ideia surgiu da necessidade de t
 | NFSe ABRASF | `abrasf.org.br/nfse.xsd` | ✅ Implementado |
 | Cancelamento NFe | Evento `tpEvento 110111` | ✅ Implementado |
 | Cancelamento CTe | Evento próprio do CTe | 🔲 Planejado |
-| Cancelamento NFSe | Nacional e ABRASF | 🔲 Planejado |
+| Cancelamento NFSe | Nacional e ABRASF | 🔲 Em implementação |
 
 ---
 
@@ -56,7 +56,7 @@ Projeto pessoal em desenvolvimento contínuo. A ideia surgiu da necessidade de t
 projeto/
 ├── src/
 │   ├── loader.py              # Leitura de ZIPs e XMLs do disco
-│   ├── processor.py           # Funções utilitárias (limpar_num, formatar_data, etc.)
+│   ├── processor.py           # Funções utilitárias
 │   ├── nfe_parser.py          # Extração de dados de NFe
 │   ├── cte_parser.py          # Extração de dados de CTe
 │   ├── nfse_parser.py         # Extração de dados de NFSe Nacional
@@ -65,11 +65,6 @@ projeto/
 │   ├── excel_gen.py           # Geração do relatório Excel
 │   ├── db.py                  # Conexão e inserção no SQLite (em desenvolvimento)
 │   └── schema.sql             # Definição das tabelas do banco (em desenvolvimento)
-├── data/                      # Ignorado no Git
-│   ├── input/                 # XMLs e ZIPs a processar
-│   ├── output/                # Relatório Excel gerado
-│   └── processados/           # Arquivos já processados (movidos automaticamente)
-├── tests/                     # Testes unitários por tipo de documento
 ├── main.py                    # Ponto de entrada — execução principal
 └── requirements.txt           # Dependências do projeto
 ```
@@ -83,27 +78,22 @@ projeto/
 pip install -r requirements.txt
 ```
 
-2. Coloque os arquivos XML ou ZIP na pasta `data/input/`.
-
-3. Execute:
+2. Execute:
 ```bash
 python main.py
 ```
 
-4. Escolha o número de núcleos a utilizar quando solicitado.
+3. Indique a Pasta com os arquivos e escolha o número de núcleos a utilizar quando solicitado.
 
-5. O relatório será gerado em `data/output/relatorio_notas_completo.xlsx`.
+4. O relatório será gerado na `pasta indicada no passo 3`.
 
 ---
 
 ## 🗺️ O que está sendo desenvolvido
 
-- **Deduplicação via SQLite temporário (`:memory:` / arquivo temp):** substituir o controle em memória por um banco SQLite descartável, aproveitando `PRIMARY KEY` e `INSERT OR IGNORE` para garantir unicidade, além de permitir cruzamentos via `JOIN` (NFe × Cancelamento, NFe × CTe) e resumos via `GROUP BY` diretamente em SQL.
-- **Organização dos arquivos processados por empresa:** após o processamento, cada XML será movido para `processados/{CNPJ} - {Razão Social}/`, organizando automaticamente os documentos por emitente/transportadora/prestador.
-- **Input via terminal:** em vez de pasta fixa, o usuário poderá indicar qualquer caminho no terminal ao iniciar o programa — tornando o projeto utilizável por outras pessoas sem precisar editar o código.
 - **Executável standalone:** empacotamento via PyInstaller para distribuição sem necessidade de Python instalado.
 - **Novos tipos de documento:** NFC-e, MDF-e, cancelamentos de CTe e NFSe.
-- **Melhorias no relatório Excel:** formatação de moeda (R$), datas, ajuste automático de largura de colunas e aba de resumo com totais por CFOP, mês e empresa.
+- **Melhorias no relatório Excel:** Linha com formulas. Ex =SUBTOTAL(9;A:A)
 - **Testes unitários:** cobertura de cada parser com XMLs de exemplo, para proteger contra regressões.
 
 ---

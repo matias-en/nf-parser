@@ -1,9 +1,16 @@
-from src.processor import limpar_num, limpar_int, formatar_data
+from src.processor import limpar_num, limpar_int, formatar_data, formatar_cnpj_cpf
 
 nfse_abraf = {'nfse_abraf': 'http://www.abrasf.org.br/nfse.xsd'}
 
+def _tipo_documento(doc_cnpj: str, doc_cpf: str) -> str:
+    if doc_cnpj:
+        return "CNPJ"
+    if doc_cpf:
+        return "CPF"
+    return ""
 
 def extrair_dados(arvore):
+
     def pegar_valor(xpath_str):
         res = arvore.xpath(xpath_str, namespaces=nfse_abraf)
         return res[0] if res else ""
@@ -17,51 +24,34 @@ def extrair_dados(arvore):
     def buscar_data(xpath_str):
         return formatar_data(arvore.xpath(xpath_str, namespaces=nfse_abraf))
 
-    #chave_bruta = pegar_valor('//nfse_abraf:infNFSe/@Id')
-    #chave_nfse = "".join(filter(str.isdigit, chave_bruta))
+    # PRESTADOR
+    cnpj_prest = pegar_valor('//nfse_abraf:Prestador/nfse_abraf:CpfCnpj/nfse_abraf:Cnpj/text()')
+    cpf_prest  = pegar_valor('//nfse_abraf:Prestador/nfse_abraf:CpfCnpj/nfse_abraf:CPF/text()')
 
-    numero_nfse = buscar_int('//nfse_abraf:InfNfse/nfse_abraf:Numero/text()')
-    data_final = buscar_data('//nfse_abraf:InfDeclaracaoPrestacaoServico/nfse_abraf:Competencia/text()')
+    # TOMADOR
+    cnpj_tom = pegar_valor('//nfse_abraf:TomadorServico//nfse_abraf:Cnpj/text()')
+    cpf_tom  = pegar_valor('//nfse_abraf:TomadorServico//nfse_abraf:Cpf/text()')
 
-    doc_p = pegar_valor('//nfse_abraf:Prestador/nfse_abraf:CpfCnpj/nfse_abraf:Cnpj/text()') or pegar_valor(
-        '//nfse_abraf:Prestador/nfse_abraf:CpfCnpj/nfse_abraf:CPF/text()')
-    nome_p = pegar_valor('//nfse_abraf:PrestadorServico/nfse_abraf:RazaoSocial/text()')
-
-    doc_t = pegar_valor('//nfse_abraf:TomadorServico//nfse_abraf:Cnpj/text()') or pegar_valor('//nfse_abraf:TomadorServico//nfse_abraf:Cpf/text()')
-    nome_t = pegar_valor('//nfse_abraf:TomadorServico/nfse_abraf:RazaoSocial/text()')
-
-    v_total = buscar_num('//nfse_abraf:Servico/nfse_abraf:Valores/nfse_abraf:ValorServicos/text()')
-    v_issqn = buscar_num('//nfse_abraf:ValoresNfse/nfse_abraf:ValorIss/text()')
-    aliq = buscar_num('//nfse_abraf:ValoresNfse/nfse_abraf:Aliquota/text()') / 100
-    v_liq = buscar_num('//nfse_abraf:ValoresNfse/nfse_abraf:ValorLiquidoNfse/text()')
-    r_irrf = buscar_num('//nfse_abraf:Servico/nfse_abraf:Valores/nfse_abraf:ValorIr/text()')
-    r_cpp = buscar_num('//nfse_abraf:Servico/nfse_abraf:Valores/nfse_abraf:ValorCp/text()')
-    r_csll = buscar_num('//nfse_abraf:Servico/nfse_abraf:Valores/nfse_abraf:ValorCsll/text()')
-    r_pis = buscar_num('//nfse_abraf:Servico/nfse_abraf:Valores/nfse_abraf:ValorPis/text()')
-    r_cofins = buscar_num('//nfse_abraf:Servico/nfse_abraf:Valores/nfse_abraf:ValorCofins/text()')
-
+    aliq    = buscar_num('//nfse_abraf:ValoresNfse/nfse_abraf:Aliquota/text()')
     ret_cod = pegar_valor('//nfse_abraf:Servico/nfse_abraf:IssRetido/text()')
-    ret_texto = "Sim" if ret_cod == "1" else "Não"
 
-    dados_nfseabraf = {
-
-        "Numero": numero_nfse,
-        "Data": data_final,
-        "CNPJ/CPF Prestador": doc_p,
-        "Razão Prestador": nome_p,
-        "CNPJ/CPF Tomador": doc_t,
-        "Razão Tomador": nome_t,
-        "Valor Total": v_total,
-        "Aliq ISSQN": aliq,
-        "ISSQN": v_issqn,
-        "ISSQN Retido": ret_texto,
-        "IRRF Retido": r_irrf,
-        "CPP Retido": r_cpp,
-        "CSLL Retido": r_csll,
-        "COFINS Retido": r_cofins,
-        "PIS Retido": r_pis,
-        "Valor Líquido": v_liq,
-
+    return {
+        "Numero":              buscar_int('//nfse_abraf:InfNfse/nfse_abraf:Numero/text()'),
+        "Data":                buscar_data('//nfse_abraf:InfDeclaracaoPrestacaoServico/nfse_abraf:Competencia/text()'),
+        "CNPJ/CPF Prestador":  formatar_cnpj_cpf(cnpj_prest or cpf_prest),
+        "Tipo Doc Prestador":  _tipo_documento(cnpj_prest, cpf_prest),
+        "Razão Prestador":     pegar_valor('//nfse_abraf:PrestadorServico/nfse_abraf:RazaoSocial/text()'),
+        "CNPJ/CPF Tomador":    formatar_cnpj_cpf(cnpj_tom or cpf_tom),
+        "Tipo Doc Tomador":    _tipo_documento(cnpj_tom, cpf_tom),
+        "Razão Tomador":       pegar_valor('//nfse_abraf:TomadorServico/nfse_abraf:RazaoSocial/text()'),
+        "Valor Total":         buscar_num('//nfse_abraf:Servico/nfse_abraf:Valores/nfse_abraf:ValorServicos/text()'),
+        "Aliq ISSQN":          aliq / 100 if aliq else 0.0,
+        "ISSQN":               buscar_num('//nfse_abraf:ValoresNfse/nfse_abraf:ValorIss/text()'),
+        "ISSQN Retido":        "Sim" if ret_cod == "1" else "Não",
+        "IRRF Retido":         buscar_num('//nfse_abraf:Servico/nfse_abraf:Valores/nfse_abraf:ValorIr/text()'),
+        "CPP Retido":          buscar_num('//nfse_abraf:Servico/nfse_abraf:Valores/nfse_abraf:ValorCp/text()'),
+        "CSLL Retido":         buscar_num('//nfse_abraf:Servico/nfse_abraf:Valores/nfse_abraf:ValorCsll/text()'),
+        "COFINS Retido":       buscar_num('//nfse_abraf:Servico/nfse_abraf:Valores/nfse_abraf:ValorCofins/text()'),
+        "PIS Retido":          buscar_num('//nfse_abraf:Servico/nfse_abraf:Valores/nfse_abraf:ValorPis/text()'),
+        "Valor Líquido":       buscar_num('//nfse_abraf:ValoresNfse/nfse_abraf:ValorLiquidoNfse/text()'),
     }
-
-    return dados_nfseabraf
