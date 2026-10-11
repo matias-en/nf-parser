@@ -1,103 +1,129 @@
-# 📑 Processador de Documentos Fiscais — NFe, CTe & NFSe para Excel
+# 📑 NFe, NFSe & CTe XML Parser to Excel
+Este projeto pessoal automatiza a extração de dados de documentos fiscais eletrônicos brasileiros — Notas Fiscais Eletrônicas (NFe), Notas Fiscais de Serviços Eletrônicas (NFSe, padrão nacional e ABRASF), Conhecimentos de Transporte Eletrônico (CTe) e eventos de cancelamento — diretamente de arquivos XML. O objetivo é transformar a complexidade desses documentos em planilhas organizadas e fáceis de analisar.
 
-Projeto pessoal em desenvolvimento contínuo. A ideia surgiu da necessidade de transformar grandes volumes de documentos fiscais eletrônicos brasileiros — que chegam em XML dentro de pacotes ZIP — em planilhas organizadas e prontas para análise. O que começou como um parser simples de NFe foi crescendo conforme eu fui entendendo melhor as estruturas fiscais e identificando novos casos de uso no meu dia a dia.
+## 🚀 Funcionalidades
 
----
+- **Identificação Automática:** Detecta o tipo de documento pelo namespace do XML — NFe (Modelo 55, incluindo emitentes do Simples Nacional via CSOSN), NFSe (Padrão Nacional), NFSe (padrão ABRASF), CTe e eventos de cancelamento de NFe.
+- **Processamento em Lote e Paralelo:** Lê arquivos `.xml` soltos ou pacotes `.zip` (sem extração prévia) e processa vários ZIPs em paralelo com `ProcessPoolExecutor`, em lotes configuráveis para controlar o uso de RAM.
+- **Organização Automática:** Arquiva cada XML processado em `processados/<CNPJ> - <Razão Social>/`, agrupando por empresa; XMLs não identificados ou corrompidos vão para `processados/_nao_classificados/`, e os ZIPs originais para `processados/_zips_originais/` (backup).
+- **Conciliação de Valores:** Compara o total de produtos declarado no cabeçalho da NFe com a soma dos itens e sinaliza divergências acima de uma tolerância configurável (padrão R$ 0,01).
+- **Contador de Duplicadas:** Notas já processadas (mesma chave, reaparecendo em ZIPs diferentes) são ignoradas na consolidação e contabilizadas por tipo de documento.
+- **Saída Consolidada em Excel (.xlsx)** com uma aba por tipo de documento, mais abas de resumo:
+    - **Mercadorias (NFe)** — cabeçalho, emitente, destinatário e valores totais, com status (Normal/Cancelada).
+    - **Produtos** — itens de cada NFe: CFOP, CST/CSOSN, NCM, ICMS, IPI, PIS e COFINS.
+    - **Transporte (CTe)** — dados de frete, transportadora, remetente/destinatário e NFe referenciada.
+    - **Cancelamentos** — eventos de cancelamento vinculados à chave da NFe.
+    - **Serviços (Nacional)** e **Serviços (ABRASF)** — dados de prestador/tomador, código de tributação nacional do serviço (NFSe Nacional) e retenções (ISS, IRRF, CSRF/CSLL, PIS/COFINS retidos).
+    - **Resumo CFOP** e **Resumo Mensal** — totais agregados prontos para análise.
+    - **Resumo Execução** — quantas notas únicas e duplicadas foram processadas, por tipo de documento.
+    - **Divergências** — NFes onde o total declarado não bate com a soma dos itens.
+    - **Erros** — XMLs que falharam no parse ou não puderam ser classificados, com a origem (ZIP/arquivo).
 
-## 🚀 O que o projeto faz hoje
+## 🛠️ Tecnologias Utilizadas
 
-- **Identificação automática do tipo de documento:** detecta NFe, CTe, NFSe (Padrão Nacional e ABRASF) e eventos de cancelamento a partir do namespace XML de cada arquivo — sem depender do nome do arquivo ou da pasta.
-- **Processamento em lote com suporte a ZIP:** lê arquivos XML diretamente de dentro dos pacotes compactados, sem precisar extrair antes. Suporte a múltiplos ZIPs em paralelo.
-- **Paralelismo com múltiplos núcleos:** utiliza `ProcessPoolExecutor` para processar os ZIPs simultaneamente, aproveitando o hardware disponível. O número de núcleos é escolhido pelo usuário na inicialização.
-- **Deduplicação de documentos:** documentos com a mesma chave fiscal (44 dígitos) processados mais de uma vez no mesmo lote são ignorados automaticamente, evitando dados duplicados no relatório.
-- **Relatório Excel consolidado:** gera um único arquivo `.xlsx` com abas separadas por tipo de documento:
-  - **Mercadorias (NFe):** emitente, destinatário, valores totais, ICMS, IPI, PIS e COFINS.
-  - **Produtos:** detalhamento de itens por nota — NCM, CFOP, quantidade, valor unitário e tributos por produto.
-  - **Transporte (CTe):** transportadora, remetente, destinatário, valor do frete, ICMS e NFe referenciada.
-  - **Cancelamentos:** chave vinculada, data, protocolo e justificativa.
-  - **Serviços (Nacional):** NFSe padrão RFB — prestador, tomador, valores e retenções (ISSQN, IRRF, CPP, CSLL).
-  - **Serviços (ABRASF):** NFSe padrão municipal — mesma estrutura adaptada ao padrão da ABRASF.
-
----
-
-## 🗂️ Tipos de documento suportados
-
-| Documento | Padrão | Status |
-|---|---|---|
-| NFe | Modelo 55 — `portalfiscal.inf.br/nfe` | ✅ Implementado |
-| NFC-e | Modelo 65 — mesmo namespace da NFe | 🔲 Planejado |
-| CTe | `portalfiscal.inf.br/cte` | ✅ Implementado |
-| MDF-e | `portalfiscal.inf.br/mdfe` | 🔲 Planejado |
-| NFSe Nacional | `sped.fazenda.gov.br/nfse` | ✅ Implementado |
-| NFSe ABRASF | `abrasf.org.br/nfse.xsd` | ✅ Implementado |
-| Cancelamento NFe | Evento `tpEvento 110111` | ✅ Implementado |
-| Cancelamento CTe | Evento próprio do CTe | 🔲 Planejado |
-| Cancelamento NFSe | Nacional e ABRASF | 🔲 Em implementação |
-
----
-
-## 🛠️ Tecnologias utilizadas
-
-| Biblioteca | Uso |
-|---|---|
-| `lxml` | Parsing de XML e consultas XPath |
-| `pandas` | Consolidação dos dados e geração de DataFrames |
-| `openpyxl` | Escrita do relatório Excel |
-| `tqdm` | Barra de progresso no terminal |
-| `concurrent.futures` | Paralelismo com `ProcessPoolExecutor` |
-| `zipfile` | Leitura de XMLs diretamente dentro dos ZIPs |
-| `sqlite3` | Armazenamento temporário durante o processamento *(em desenvolvimento)* |
-
----
-
-## 📁 Estrutura do projeto
-
-```text
-projeto/
-├── src/
-│   ├── loader.py              # Leitura de ZIPs e XMLs do disco
-│   ├── processor.py           # Funções utilitárias
-│   ├── nfe_parser.py          # Extração de dados de NFe
-│   ├── cte_parser.py          # Extração de dados de CTe
-│   ├── nfse_parser.py         # Extração de dados de NFSe Nacional
-│   ├── nfse_abrasf_parser.py  # Extração de dados de NFSe ABRASF
-│   ├── event_parser.py        # Extração de eventos de cancelamento
-│   ├── excel_gen.py           # Geração do relatório Excel
-│   ├── db.py                  # Conexão e inserção no SQLite (em desenvolvimento)
-│   └── schema.sql             # Definição das tabelas do banco (em desenvolvimento)
-├── main.py                    # Ponto de entrada — execução principal
-└── requirements.txt           # Dependências do projeto
-```
-
----
+- **Python 3.12+**
+- [`lxml`](https://lxml.de/) — parse dos XMLs via XPath (parser configurado sem resolução de entidades externas nem DTD, como mitigação de XXE, já que os arquivos costumam vir de terceiros).
+- **SQLite** (via `sqlite3`, biblioteca padrão) — banco temporário em disco usado como camada de consolidação/deduplicação antes de gerar o Excel; descartado ao final da execução (nunca persiste entre execuções, já que cada rodada normalmente é de uma empresa/período diferente).
+- [`pandas`](https://pandas.pydata.org/) — geração dos DataFrames que viram as abas do relatório.
+- [`openpyxl`](https://openpyxl.readthedocs.io/) — escrita do `.xlsx` com formatação (moeda, data, percentual, cabeçalho estilizado).
+- [`tqdm`](https://tqdm.github.io/) — barra de progresso no terminal.
+- [`PyYAML`](https://pyyaml.org/) — leitura/escrita do `config.yaml`.
+- `tkinter` (biblioteca padrão) — interface gráfica opcional (`gui.py`).
+- `concurrent.futures.ProcessPoolExecutor` — paralelismo por processo no processamento dos ZIPs.
+- [`pytest`](https://docs.pytest.org/) — suíte de testes automatizados (veja [Testes](#-testes)).
+- **PyInstaller** — geração do executável standalone da GUI (`NF-Parser.spec`; pastas `build/` e `dist/` geradas localmente, ignoradas no Git).
 
 ## ▶️ Como usar
 
-1. Instale as dependências:
+### Interface gráfica
+
 ```bash
-pip install -r requirements.txt
+python gui.py
 ```
 
-2. Execute:
+Escolha a pasta com os XMLs/ZIPs, ajuste núcleos/lote/tolerância se quiser, e clique em **Processar**. O progresso e o log aparecem na própria janela; ao final, um resumo mostra duplicadas ignoradas e divergências encontradas, com botões para abrir a pasta do relatório ou o Excel gerado direto. Marcando "Salvar estas configurações como padrão", os valores escolhidos vão para o `config.yaml` (veja abaixo) e voltam a preencher os campos na próxima abertura.
+
+### Linha de comando — modo interativo (padrão)
+
 ```bash
 python main.py
 ```
 
-3. Indique a Pasta com os arquivos e escolha o número de núcleos a utilizar quando solicitado.
+Pergunta a pasta, os núcleos de CPU e o tamanho do lote.
 
-4. O relatório será gerado na `pasta indicada no passo 3`.
+### Linha de comando — modo não interativo
 
----
+Útil para rodar via agendador de tarefas ou outro script:
 
-## 🗺️ O que está sendo desenvolvido
+```bash
+python main.py --input "C:\caminho\para\xmls" --cores 4 --batch-size 5 --tolerancia 0.01
+```
 
-- **Executável standalone:** empacotamento via PyInstaller para distribuição sem necessidade de Python instalado.
-- **Novos tipos de documento:** NFC-e, MDF-e, cancelamentos de CTe e NFSe.
-- **Melhorias no relatório Excel:** Linha com formulas. Ex =SUBTOTAL(9;A:A)
-- **Testes unitários:** cobertura de cada parser com XMLs de exemplo, para proteger contra regressões.
+| Argumento | Descrição |
+|---|---|
+| `--input`, `-i` | Pasta com os XMLs/ZIPs de entrada. Se informado, pula todos os prompts interativos. |
+| `--cores`, `-c` | Núcleos de CPU a usar (padrão: metade dos núcleos disponíveis). |
+| `--batch-size`, `-b` | Quantidade de ZIPs por lote (padrão: 5). |
+| `--tolerancia`, `-t` | Tolerância em R$ para a conciliação de valores (padrão: 0.01). |
 
----
+O relatório é salvo como `relatorio_notas_AAAAMMDD_HHMMSS.xlsx` na própria pasta de entrada.
+
+### Arquivo de configuração (`config.yaml`)
+
+Copie `config.example.yaml` para `config.yaml` (na raiz do projeto, ou ao lado do `.exe` quando empacotado) para fixar padrões e evitar digitar os mesmos argumentos toda vez:
+
+```yaml
+pasta_entrada: null
+nucleos: null
+tamanho_lote: 5
+tolerancia_conciliacao: 0.01
+```
+
+Ordem de prioridade: argumentos de linha de comando > `config.yaml` > prompts interativos. Se `pasta_entrada` estiver preenchido no `config.yaml`, `python main.py` (sem nenhum argumento) já roda direto, sem perguntar nada. O `config.yaml` é local (fica fora do Git) — cada máquina/empresa pode ter o seu.
+
+## 📦 Gerando o executável (.exe)
+
+A interface gráfica pode ser empacotada num `.exe` standalone com [PyInstaller](https://pyinstaller.org/), sem precisar instalar Python na máquina que for rodar:
+
+```bash
+pip install pyinstaller
+pyinstaller NF-Parser.spec
+```
+
+O executável fica em `dist/NF-Parser.exe`. Coloque um `config.yaml` na mesma pasta do `.exe` para fixar a pasta de entrada padrão (mesma lógica do modo script, veja acima).
+
+`NF-Parser.spec` empacota só a `gui.py` (interface gráfica) num único arquivo (`--onefile`), sem console (`--windowed`), incluindo o `src/schema.sql` necessário para o banco temporário. Para regenerar o `.spec` do zero ou ajustar as opções (ex.: usar `--onedir` para abrir mais rápido, em troca de distribuir uma pasta em vez de um arquivo único):
+
+```bash
+pyinstaller --name NF-Parser --onefile --windowed --add-data "src/schema.sql;." gui.py
+```
+
+`main.py` (a CLI) não é empacotado por este `.spec` — ele continua rodando via `python main.py`, útil para agendadores de tarefas que já têm Python instalado.
+
+## 🧪 Testes
+
+```bash
+pip install -r requirements.txt
+pytest
+```
+
+A suíte cobre as funções utilitárias (`src/processor.py`), cada parser de documento fiscal (com XMLs sintéticos, sem nenhum dado real), a camada de banco (`src/db.py`), a conciliação de valores (`src/conciliacao.py`), o `config.yaml` (`src/config.py`), o pipeline completo (`main.py`) e a interface gráfica (`gui.py`).
+
+## 📁 Estrutura do Projeto
+
+```text
+NF-Parser/
+├── src/                    # Lógica de extração, banco temporário, conciliação e geração do Excel
+├── tests/                  # Testes automatizados (pytest)
+├── data/                   # Input de XMLs e Output de planilhas (Ignorado no Git)
+├── main.py                 # Pipeline + CLI (interativa ou não interativa)
+├── gui.py                  # Interface gráfica (Tkinter)
+├── NF-Parser.spec          # Empacotamento da GUI em .exe (PyInstaller)
+├── config.example.yaml     # Modelo de configuração (copie para config.yaml)
+├── pytest.ini              # Configuração do pytest
+└── requirements.txt        # Dependências do projeto
+```
 
 ## ⚖️ LGPD & Privacidade
 
-Projeto desenvolvido para fins de estudo e uso pessoal. O código não armazena nem compartilha dados sensíveis. O `.gitignore` está configurado para que nenhum dado fiscal real (`.xml` ou `.xlsx`) seja enviado ao repositório.
+Este projeto foi desenvolvido para fins de estudo. O código não armazena nem compartilha dados sensíveis. O arquivo `.gitignore` está configurado para garantir que nenhum dado fiscal real (`.xml`, `.xlsx`, `.csv`, `.zip`, a pasta `data/` ou o `config.yaml` de cada máquina) seja enviado ao repositório público. Os testes automatizados usam apenas XMLs fictícios, escritos diretamente no código.

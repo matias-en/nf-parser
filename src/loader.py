@@ -9,12 +9,26 @@ from src.processor import nome_pasta_empresa
 logger = logging.getLogger(__name__)
 
 
+def parser_xml_seguro(**overrides) -> etree.XMLParser:
+    opcoes = dict(
+        resolve_entities=False,
+        no_network=True,
+        load_dtd=False,
+        dtd_validation=False,
+        huge_tree=False,
+    )
+    opcoes.update(overrides)
+    return etree.XMLParser(**opcoes)
+
+
 def carregar_xml(caminho_arquivo: Path):
-    parser = etree.XMLParser(remove_blank_text=True)
+    """Carrega XML a partir de um arquivo no disco."""
+    parser = parser_xml_seguro(remove_blank_text=True)
     return etree.parse(str(caminho_arquivo), parser)
 
 
 def listar_xmls(diretorio: Path) -> list:
+    """Busca arquivos .xml soltos na pasta, ignorando subpasta 'processados'."""
     return [
         p for p in Path(diretorio).glob("*.xml")
         if "processados" not in p.parts
@@ -22,6 +36,7 @@ def listar_xmls(diretorio: Path) -> list:
 
 
 def listar_zips(diretorio: Path) -> list:
+    """Busca todos os arquivos .zip na pasta, ignorando subpasta 'processados'."""
     return [
         p for p in Path(diretorio).rglob("*.zip")
         if "processados" not in p.parts
@@ -29,6 +44,7 @@ def listar_zips(diretorio: Path) -> list:
 
 
 def mapear_conteudo_dos_zips(lista_de_zips: list) -> list:
+    """Mapeia quais XMLs existem dentro de cada ZIP."""
     tarefas = []
     for caminho_zip in lista_de_zips:
         try:
@@ -48,7 +64,10 @@ def salvar_xml_por_empresa(
     razao_social: str,
     processados_dir: Path
 ) -> None:
-
+    """
+    Salva um XML individual dentro de uma subpasta por empresa:
+        processados/{CNPJ} - {Razão Social}/{nome_xml}
+    """
     pasta_empresa = processados_dir / nome_pasta_empresa(cnpj, razao_social)
     pasta_empresa.mkdir(parents=True, exist_ok=True)
 
@@ -61,13 +80,21 @@ def salvar_xml_nao_classificado(
     nome_xml: str,
     processados_dir: Path
 ) -> None:
-
+    """
+    Salva XMLs não classificados ou com erro em:
+        processados/_nao_classificados/{nome_xml}
+    """
     pasta = processados_dir / "_nao_classificados"
     pasta.mkdir(parents=True, exist_ok=True)
     (pasta / Path(nome_xml).name).write_bytes(conteudo_xml)
 
 
 def arquivar_zip_original(caminho_zip: Path, processados_dir: Path) -> None:
+    """
+    Move o ZIP original (já processado) para:
+        processados/_zips_originais/{nome_zip}
+    Como backup do lote de origem.
+    """
     pasta_backup = processados_dir / "_zips_originais"
     pasta_backup.mkdir(parents=True, exist_ok=True)
     shutil.move(str(caminho_zip), str(pasta_backup / caminho_zip.name))

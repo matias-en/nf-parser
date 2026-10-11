@@ -41,6 +41,12 @@ data/
 *.swp
 *.swo
 
+# --- Configuracao local ---
+config.yaml
+
+# --- Logs ---
+*.log
+
 # --- Sistema Operativo ---
 .DS_Store
 Thumbs.db

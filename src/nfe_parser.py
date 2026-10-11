@@ -2,15 +2,18 @@ from src.processor import limpar_num, limpar_int, formatar_data, formatar_cnpj_c
 
 nfe_nacional = {'nfe_sped': 'http://www.portalfiscal.inf.br/nfe'}
 
+
 def _tipo_documento(doc_bruto_cnpj: str, doc_bruto_cpf: str) -> str:
+    """Retorna 'CNPJ' se o campo CNPJ foi preenchido, 'CPF' se foi CPF, ou '' se nenhum."""
     if doc_bruto_cnpj:
         return "CNPJ"
     if doc_bruto_cpf:
         return "CPF"
     return ""
 
+
 def extrair_dados(arvore):
-    inf_nfe_list = arvore.xpath('./nfe_sped:NFe/nfe_sped:infNFe', namespaces=nfe_nacional)
+    inf_nfe_list = arvore.xpath('.//nfe_sped:infNFe', namespaces=nfe_nacional)
     if not inf_nfe_list:
         return {"cabecalho": {}, "produtos": []}
 
@@ -34,12 +37,12 @@ def extrair_dados(arvore):
     numero_nfe = buscar_int('./nfe_sped:ide/nfe_sped:nNF/text()')
     data_emissao = buscar_data('./nfe_sped:ide/nfe_sped:dhEmi/text()')
 
-    # EMITENTE
+    # EMITENTE — emitente sempre é empresa (CNPJ), mas pode ser MEI (CPF)
     emit_cnpj_bruto = pegar_valor('./nfe_sped:emit/nfe_sped:CNPJ/text()')
     emit_cpf_bruto  = pegar_valor('./nfe_sped:emit/nfe_sped:CPF/text()')
     doc_emit_bruto  = emit_cnpj_bruto or emit_cpf_bruto
 
-    # DESTINATÁRIO
+    # DESTINATÁRIO — pessoa física (CPF) ou jurídica (CNPJ)
     dest_cnpj_bruto = pegar_valor('./nfe_sped:dest/nfe_sped:CNPJ/text()')
     dest_cpf_bruto  = pegar_valor('./nfe_sped:dest/nfe_sped:CPF/text()')
     doc_dest_bruto  = dest_cnpj_bruto or dest_cpf_bruto
@@ -58,6 +61,7 @@ def extrair_dados(arvore):
         "Razão Destinatário":  pegar_valor('./nfe_sped:dest/nfe_sped:xNome/text()'),
         "UF Destinatário":     pegar_valor('./nfe_sped:dest/nfe_sped:enderDest/nfe_sped:UF/text()'),
         "Valor Total NF":      buscar_num('./nfe_sped:total/nfe_sped:ICMSTot/nfe_sped:vNF/text()'),
+        "Valor Total Produtos": buscar_num('./nfe_sped:total/nfe_sped:ICMSTot/nfe_sped:vProd/text()'),
         "BC ICMS":             buscar_num('./nfe_sped:total/nfe_sped:ICMSTot/nfe_sped:vBC/text()'),
         "ICMS":                buscar_num('./nfe_sped:total/nfe_sped:ICMSTot/nfe_sped:vICMS/text()'),
         "IPI":                 buscar_num('./nfe_sped:total/nfe_sped:ICMSTot/nfe_sped:vIPI/text()'),
@@ -82,22 +86,25 @@ def extrair_dados(arvore):
             return limpar_int(item.xpath(xpath_rel, namespaces=nfe_nacional))
 
         lista_produtos.append({
-            "Chave":    chave_nfe,
-            "Numero":   numero_nfe,
-            "Data":     data_emissao,
-            "nItem":    p_val_item('./@nItem'),
-            "xProd":    p_val_item('./nfe_sped:prod/nfe_sped:xProd/text()'),
-            "NCM":      p_val_item('./nfe_sped:prod/nfe_sped:NCM/text()'),
-            "CFOP":     b_int_item('./nfe_sped:prod/nfe_sped:CFOP/text()'),
-            "uCom":     p_val_item('./nfe_sped:prod/nfe_sped:uCom/text()'),
-            "qCom":     b_num_item('./nfe_sped:prod/nfe_sped:qCom/text()'),
-            "vUnCom":   b_num_item('./nfe_sped:prod/nfe_sped:vUnCom/text()'),
-            "vProd":    b_num_item('./nfe_sped:prod/nfe_sped:vProd/text()'),
-            "vTotTrib": b_num_item('./nfe_sped:imposto/nfe_sped:vTotTrib/text()'),
-            "vICMS":    b_num_item('.//nfe_sped:ICMS//nfe_sped:vICMS/text()'),
-            "vPIS":     b_num_item('.//nfe_sped:PIS//nfe_sped:vPIS/text()'),
-            "vCOFINS":  b_num_item('.//nfe_sped:COFINS//nfe_sped:vCOFINS/text()'),
-            "vIPI":     b_num_item('.//nfe_sped:IPI//nfe_sped:vIPI/text()'),
+            "Chave":       chave_nfe,
+            "Numero":      numero_nfe,
+            "Data":        data_emissao,
+            "nItem":       p_val_item('./@nItem'),
+            "xProd":       p_val_item('./nfe_sped:prod/nfe_sped:xProd/text()'),
+            "NCM":         p_val_item('./nfe_sped:prod/nfe_sped:NCM/text()'),
+            "CFOP":        b_int_item('./nfe_sped:prod/nfe_sped:CFOP/text()'),
+            "uCom":        p_val_item('./nfe_sped:prod/nfe_sped:uCom/text()'),
+            "qCom":        b_num_item('./nfe_sped:prod/nfe_sped:qCom/text()'),
+            "vUnCom":      b_num_item('./nfe_sped:prod/nfe_sped:vUnCom/text()'),
+            "vProd":       b_num_item('./nfe_sped:prod/nfe_sped:vProd/text()'),
+            "vTotTrib":    b_num_item('./nfe_sped:imposto/nfe_sped:vTotTrib/text()'),
+            "CST ICMS":    p_val_item('.//nfe_sped:ICMS//nfe_sped:CST/text()') or p_val_item('.//nfe_sped:ICMS//nfe_sped:CSOSN/text()'),
+            "vICMS":       b_num_item('.//nfe_sped:ICMS//nfe_sped:vICMS/text()'),
+            "CST PIS":     p_val_item('.//nfe_sped:PIS//nfe_sped:CST/text()'),
+            "vPIS":        b_num_item('.//nfe_sped:PIS//nfe_sped:vPIS/text()'),
+            "CST COFINS":  p_val_item('.//nfe_sped:COFINS//nfe_sped:CST/text()'),
+            "vCOFINS":     b_num_item('.//nfe_sped:COFINS//nfe_sped:vCOFINS/text()'),
+            "vIPI":        b_num_item('.//nfe_sped:IPI//nfe_sped:vIPI/text()'),
         })
 
     return {"cabecalho": cabecalho, "produtos": lista_produtos}

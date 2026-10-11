@@ -1,13 +1,14 @@
+import logging
+import os
 import sqlite3
 import tempfile
-import os
-import logging
 from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
-
+# ============================================================
 # MAPEAMENTOS: chave do dicionário do parser → coluna do banco
+# ============================================================
 
 MAPA_NFE = {
     "Chave":                 "chave",
@@ -24,6 +25,7 @@ MAPA_NFE = {
     "Razão Destinatário":    "razao_dest",
     "UF Destinatário":       "uf_dest",
     "Valor Total NF":        "valor_total",
+    "Valor Total Produtos":  "valor_total_produtos",
     "BC ICMS":               "bc_icms",
     "ICMS":                  "icms",
     "IPI":                   "ipi",
@@ -32,22 +34,25 @@ MAPA_NFE = {
 }
 
 MAPA_PRODUTOS = {
-    "Chave":    "chave",
-    "Numero":   "numero",
-    "Data":     "data",
-    "nItem":    "n_item",
-    "xProd":    "x_prod",
-    "NCM":      "ncm",
-    "CFOP":     "cfop",
-    "uCom":     "u_com",
-    "qCom":     "q_com",
-    "vUnCom":   "v_un_com",
-    "vProd":    "v_prod",
-    "vTotTrib": "v_tot_trib",
-    "vICMS":    "v_icms",
-    "vPIS":     "v_pis",
-    "vCOFINS":  "v_cofins",
-    "vIPI":     "v_ipi",
+    "Chave":      "chave",
+    "Numero":     "numero",
+    "Data":       "data",
+    "nItem":      "n_item",
+    "xProd":      "x_prod",
+    "NCM":        "ncm",
+    "CFOP":       "cfop",
+    "uCom":       "u_com",
+    "qCom":       "q_com",
+    "vUnCom":     "v_un_com",
+    "vProd":      "v_prod",
+    "vTotTrib":   "v_tot_trib",
+    "CST ICMS":   "cst_icms",
+    "vICMS":      "v_icms",
+    "CST PIS":    "cst_pis",
+    "vPIS":       "v_pis",
+    "CST COFINS": "cst_cofins",
+    "vCOFINS":    "v_cofins",
+    "vIPI":       "v_ipi",
 }
 
 MAPA_CTE = {
@@ -98,6 +103,7 @@ MAPA_NFSE = {
     "CPP":                 "cpp",
     "CSRF":                "csrf",
     "Valor Líquido":       "valor_liquido",
+    "Cód. Serviço":        "cod_trib_nacional",
 }
 
 MAPA_NFSE_ABRASF = {
@@ -130,6 +136,10 @@ def _normalizar(dicionario: dict, mapeamento: dict) -> dict:
     }
 
 
+# ============================================================
+# CLASSE PRINCIPAL
+# ============================================================
+
 class BancoFiscal:
     """
     Banco SQLite temporário (arquivo em disco, descartado ao final).
@@ -150,6 +160,9 @@ class BancoFiscal:
         self.conn = sqlite3.connect(self._caminho)
         self._aplicar_pragmas()
         self._criar_tabelas()
+        self._duplicadas = {
+            "nfe": 0, "cte": 0, "cancelamento": 0, "nfse": 0, "nfse_abrasf": 0,
+        }
         logger.info(f"Banco temporário criado em: {self._caminho}")
 
     def __enter__(self):
@@ -178,10 +191,14 @@ class BancoFiscal:
             self.conn.execute(pragma)
 
     def _criar_tabelas(self):
-        caminho_schema = Path(__file__).parent / "schema.sql"
+        import sys
+        base = Path(sys._MEIPASS) if hasattr(sys, '_MEIPASS') else Path(__file__).parent
+        caminho_schema = base / "schema.sql"
         with open(caminho_schema, encoding="utf-8") as f:
             self.conn.executescript(f.read())
         self.conn.commit()
+
+    # ── Inserções ────────────────────────────────────────────
 
     def inserir_nfe(self, cabecalho: dict, produtos: list) -> bool:
         dado = _normalizar(cabecalho, MAPA_NFE)
@@ -191,30 +208,32 @@ class BancoFiscal:
                 (chave, numero, modelo, data,
                  cnpj_emitente, tipo_doc_emitente, razao_emitente, uf_emitente, operacao,
                  cnpj_dest, tipo_doc_dest, razao_dest, uf_dest,
-                 valor_total, bc_icms, icms, ipi, pis, cofins)
+                 valor_total, valor_total_produtos, bc_icms, icms, ipi, pis, cofins)
             VALUES
                 (:chave, :numero, :modelo, :data,
                  :cnpj_emitente, :tipo_doc_emitente, :razao_emitente, :uf_emitente, :operacao,
                  :cnpj_dest, :tipo_doc_dest, :razao_dest, :uf_dest,
-                 :valor_total, :bc_icms, :icms, :ipi, :pis, :cofins)
+                 :valor_total, :valor_total_produtos, :bc_icms, :icms, :ipi, :pis, :cofins)
         """, dado)
 
         nova = cur.rowcount > 0
+        if not nova:
+            self._duplicadas["nfe"] += 1
         if nova and produtos:
             self.conn.executemany("""
                 INSERT OR IGNORE INTO produtos
                     (chave, numero, data, n_item, x_prod, ncm, cfop,
                      u_com, q_com, v_un_com, v_prod, v_tot_trib,
-                     v_icms, v_pis, v_cofins, v_ipi)
+                     cst_icms, v_icms, cst_pis, v_pis, cst_cofins, v_cofins, v_ipi)
                 VALUES
                     (:chave, :numero, :data, :n_item, :x_prod, :ncm, :cfop,
                      :u_com, :q_com, :v_un_com, :v_prod, :v_tot_trib,
-                     :v_icms, :v_pis, :v_cofins, :v_ipi)
+                     :cst_icms, :v_icms, :cst_pis, :v_pis, :cst_cofins, :v_cofins, :v_ipi)
             """, [_normalizar(p, MAPA_PRODUTOS) for p in produtos])
         return nova
 
-    def inserir_cte(self, dados: dict):
-        self.conn.execute("""
+    def inserir_cte(self, dados: dict) -> bool:
+        cur = self.conn.execute("""
             INSERT OR IGNORE INTO cte
                 (chave_cte, numero, cfop, data, operacao,
                  cnpj_transportadora, tipo_doc_transportadora, transportadora,
@@ -228,9 +247,13 @@ class BancoFiscal:
                  :doc_destinatario, :tipo_doc_destinatario, :destinatario,
                  :valor_frete, :icms_cte, :nfe_referenciada)
         """, _normalizar(dados, MAPA_CTE))
+        nova = cur.rowcount > 0
+        if not nova:
+            self._duplicadas["cte"] += 1
+        return nova
 
-    def inserir_cancelamento(self, dados: dict):
-        self.conn.execute("""
+    def inserir_cancelamento(self, dados: dict) -> bool:
+        cur = self.conn.execute("""
             INSERT OR IGNORE INTO cancelamentos
                 (chave_vinculada, data_evento, status, protocolo,
                  cnpj_emitente, tipo_doc_emitente, justificativa)
@@ -238,25 +261,33 @@ class BancoFiscal:
                 (:chave_vinculada, :data_evento, :status, :protocolo,
                  :cnpj_emitente, :tipo_doc_emitente, :justificativa)
         """, _normalizar(dados, MAPA_CANCELAMENTO))
+        nova = cur.rowcount > 0
+        if not nova:
+            self._duplicadas["cancelamento"] += 1
+        return nova
 
-    def inserir_nfse(self, dados: dict):
-        self.conn.execute("""
+    def inserir_nfse(self, dados: dict) -> bool:
+        cur = self.conn.execute("""
             INSERT OR IGNORE INTO nfse
                 (chave, numero, data,
                  cnpj_prestador, tipo_doc_prestador, razao_prestador,
                  cnpj_tomador, tipo_doc_tomador, razao_tomador,
                  valor_total, aliq_issqn, issqn, issqn_retido,
-                 irrf, cpp, csrf, valor_liquido)
+                 irrf, cpp, csrf, valor_liquido, cod_trib_nacional)
             VALUES
                 (:chave, :numero, :data,
                  :cnpj_prestador, :tipo_doc_prestador, :razao_prestador,
                  :cnpj_tomador, :tipo_doc_tomador, :razao_tomador,
                  :valor_total, :aliq_issqn, :issqn, :issqn_retido,
-                 :irrf, :cpp, :csrf, :valor_liquido)
+                 :irrf, :cpp, :csrf, :valor_liquido, :cod_trib_nacional)
         """, _normalizar(dados, MAPA_NFSE))
+        nova = cur.rowcount > 0
+        if not nova:
+            self._duplicadas["nfse"] += 1
+        return nova
 
-    def inserir_nfse_abrasf(self, dados: dict):
-        self.conn.execute("""
+    def inserir_nfse_abrasf(self, dados: dict) -> bool:
+        cur = self.conn.execute("""
             INSERT OR IGNORE INTO nfse_abrasf
                 (numero, data,
                  cnpj_prestador, tipo_doc_prestador, razao_prestador,
@@ -272,6 +303,10 @@ class BancoFiscal:
                  :irrf_retido, :cpp_retido, :csll_retido, :cofins_retido,
                  :pis_retido, :valor_liquido)
         """, _normalizar(dados, MAPA_NFSE_ABRASF))
+        nova = cur.rowcount > 0
+        if not nova:
+            self._duplicadas["nfse_abrasf"] += 1
+        return nova
 
     def inserir_erro(self, detalhe: str, origem: str = ""):
         self.conn.execute(
@@ -281,6 +316,11 @@ class BancoFiscal:
 
     def commit(self):
         self.conn.commit()
+
+    def resumo_duplicadas(self) -> dict:
+        return dict(self._duplicadas)
+
+    # ── Leitura para o Excel ─────────────────────────────────
 
     def gerar_dataframes(self) -> dict:
         import pandas as pd
@@ -312,6 +352,7 @@ class BancoFiscal:
                 n.razao_dest         AS "Razão Destinatário",
                 n.uf_dest            AS "UF Destinatário",
                 n.valor_total        AS "Valor Total NF",
+                n.valor_total_produtos AS "Valor Total Produtos",
                 n.bc_icms            AS "BC ICMS",
                 n.icms               AS "ICMS",
                 n.ipi                AS "IPI",
@@ -339,8 +380,11 @@ class BancoFiscal:
                 v_un_com   AS "vUnCom",
                 v_prod     AS "vProd",
                 v_tot_trib AS "vTotTrib",
+                cst_icms   AS "CST ICMS",
                 v_icms     AS "vICMS",
+                cst_pis    AS "CST PIS",
                 v_pis      AS "vPIS",
+                cst_cofins AS "CST COFINS",
                 v_cofins   AS "vCOFINS",
                 v_ipi      AS "vIPI"
             FROM produtos
@@ -401,7 +445,8 @@ class BancoFiscal:
                 irrf               AS "IRRF",
                 cpp                AS "CPP",
                 csrf               AS "CSRF",
-                valor_liquido      AS "Valor Líquido"
+                valor_liquido      AS "Valor Líquido",
+                cod_trib_nacional  AS "Cód. Serviço"
             FROM nfse
         """, self.conn)
         df_nfse = _converter_datas(df_nfse, ["Data"])
@@ -454,6 +499,14 @@ class BancoFiscal:
             ORDER BY SUBSTR(data, 1, 7)
         """, self.conn)
 
+        df_resumo_execucao = pd.DataFrame([
+            {"Tipo de Documento": "NFe", "Notas Únicas": len(df_nfe), "Duplicadas Ignoradas": self._duplicadas["nfe"]},
+            {"Tipo de Documento": "CTe", "Notas Únicas": len(df_cte), "Duplicadas Ignoradas": self._duplicadas["cte"]},
+            {"Tipo de Documento": "Cancelamentos", "Notas Únicas": len(df_cancelamentos), "Duplicadas Ignoradas": self._duplicadas["cancelamento"]},
+            {"Tipo de Documento": "NFSe (Nacional)", "Notas Únicas": len(df_nfse), "Duplicadas Ignoradas": self._duplicadas["nfse"]},
+            {"Tipo de Documento": "NFSe (ABRASF)", "Notas Únicas": len(df_nfse_abrasf), "Duplicadas Ignoradas": self._duplicadas["nfse_abrasf"]},
+        ])
+
         return {
             "Mercadorias (NFe)":   df_nfe,
             "Produtos":            df_produtos,
@@ -463,5 +516,6 @@ class BancoFiscal:
             "Serviços (ABRASF)":   df_nfse_abrasf,
             "Resumo CFOP":         df_resumo_cfop,
             "Resumo Mensal":       df_resumo_mensal,
+            "Resumo Execução":     df_resumo_execucao,
             "Erros":               df_erros,
         }

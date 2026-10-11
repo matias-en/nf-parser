@@ -2,12 +2,14 @@ from src.processor import limpar_num, limpar_int, formatar_data, formatar_cnpj_c
 
 nfse_abraf = {'nfse_abraf': 'http://www.abrasf.org.br/nfse.xsd'}
 
+
 def _tipo_documento(doc_cnpj: str, doc_cpf: str) -> str:
     if doc_cnpj:
         return "CNPJ"
     if doc_cpf:
         return "CPF"
     return ""
+
 
 def extrair_dados(arvore):
 
@@ -28,7 +30,7 @@ def extrair_dados(arvore):
     cnpj_prest = pegar_valor('//nfse_abraf:Prestador/nfse_abraf:CpfCnpj/nfse_abraf:Cnpj/text()')
     cpf_prest  = pegar_valor('//nfse_abraf:Prestador/nfse_abraf:CpfCnpj/nfse_abraf:CPF/text()')
 
-    # TOMADOR
+    # TOMADOR (adquirente do serviço)
     cnpj_tom = pegar_valor('//nfse_abraf:TomadorServico//nfse_abraf:Cnpj/text()')
     cpf_tom  = pegar_valor('//nfse_abraf:TomadorServico//nfse_abraf:Cpf/text()')
 

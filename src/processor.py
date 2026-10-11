@@ -4,6 +4,7 @@ from datetime import datetime
 
 logger = logging.getLogger(__name__)
 
+
 def limpar_num(lista_xpath) -> float:
     if lista_xpath:
         try:
@@ -11,6 +12,7 @@ def limpar_num(lista_xpath) -> float:
         except (ValueError, TypeError):
             return 0.0
     return 0.0
+
 
 def limpar_int(lista_xpath) -> int:
     if lista_xpath:
@@ -24,6 +26,7 @@ def limpar_int(lista_xpath) -> int:
             return 0
     return 0
 
+
 def formatar_data(lista_xpath):
     if not lista_xpath:
         return None
@@ -33,9 +36,11 @@ def formatar_data(lista_xpath):
     except Exception:
         return data_bruta[:10]
 
+
 def chave_valida(chave: str) -> bool:
     """Valida se a chave fiscal tem exatamente 44 dígitos numéricos."""
     return len(chave) == 44 and chave.isdigit()
+
 
 def formatar_cnpj_cpf(documento: str) -> str:
     """Formata CNPJ (00.000.000/0000-00) ou CPF (000.000.000-00)."""
@@ -46,10 +51,12 @@ def formatar_cnpj_cpf(documento: str) -> str:
         return f"{doc[:3]}.{doc[3:6]}.{doc[6:9]}-{doc[9:]}"
     return documento
 
+
 def sanitizar_nome_pasta(nome: str) -> str:
     """Remove caracteres inválidos para nomes de pasta em qualquer SO."""
     nome = re.sub(r'[\\/:*?"<>|]', '', nome or "")
     return nome.strip()
+
 
 def nome_pasta_empresa(cnpj: str, razao_social: str) -> str:
     """Gera nome de pasta no formato: '00000000000000 - Razão Social'."""

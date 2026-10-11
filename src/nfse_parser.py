@@ -2,12 +2,14 @@ from src.processor import limpar_num, limpar_int, formatar_data, formatar_cnpj_c
 
 nfse_nacional = {'nfse_sped': 'http://www.sped.fazenda.gov.br/nfse'}
 
+
 def _tipo_documento(doc_cnpj: str, doc_cpf: str) -> str:
     if doc_cnpj:
         return "CNPJ"
     if doc_cpf:
         return "CPF"
     return ""
+
 
 def extrair_dados(arvore):
 
@@ -30,7 +32,7 @@ def extrair_dados(arvore):
     cnpj_prest = pegar_valor('//nfse_sped:emit/nfse_sped:CNPJ/text()')
     cpf_prest  = pegar_valor('//nfse_sped:emit//nfse_sped:CPF/text()')
 
-    # TOMADOR
+    # TOMADOR (adquirente do serviço)
     cnpj_tom = pegar_valor('//nfse_sped:toma/nfse_sped:CNPJ/text()')
     cpf_tom  = pegar_valor('//nfse_sped:toma/nfse_sped:CPF/text()')
 
@@ -54,5 +56,6 @@ def extrair_dados(arvore):
         "CPP":                 buscar_num('//nfse_sped:tribFed/nfse_sped:vRetCP/text()'),
         "CSRF":                buscar_num('//nfse_sped:tribFed/nfse_sped:vRetCSLL/text()'),
         "Valor Líquido":       buscar_num('//nfse_sped:valores/nfse_sped:vLiq/text()'),
+        "Cód. Serviço":        pegar_valor('//nfse_sped:cServ/nfse_sped:cTribNac/text()'),
         "Chave":               chave_nfse,
     }

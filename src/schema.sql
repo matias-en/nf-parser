@@ -1,18 +1,25 @@
+-- ============================================================
+-- Schema do banco SQLite temporário do Processador Fiscal
+-- Criado em arquivo temp a cada execução e descartado ao final.
+-- PRIMARY KEY garante deduplicação via INSERT OR IGNORE.
+-- ============================================================
+
 CREATE TABLE IF NOT EXISTS nfe (
     chave                TEXT PRIMARY KEY,
     numero               INTEGER,
     modelo               INTEGER,
     data                 TEXT,
     cnpj_emitente        TEXT,
-    tipo_doc_emitente    TEXT,
+    tipo_doc_emitente    TEXT,   -- 'CNPJ' ou 'CPF'
     razao_emitente       TEXT,
     uf_emitente          TEXT,
     operacao             TEXT,
     cnpj_dest            TEXT,
-    tipo_doc_dest        TEXT,
+    tipo_doc_dest        TEXT,   -- 'CNPJ' ou 'CPF'
     razao_dest           TEXT,
     uf_dest              TEXT,
     valor_total          REAL,
+    valor_total_produtos REAL,
     bc_icms              REAL,
     icms                 REAL,
     ipi                  REAL,
@@ -33,8 +40,11 @@ CREATE TABLE IF NOT EXISTS produtos (
     v_un_com    REAL,
     v_prod      REAL,
     v_tot_trib  REAL,
+    cst_icms    TEXT,
     v_icms      REAL,
+    cst_pis     TEXT,
     v_pis       REAL,
+    cst_cofins  TEXT,
     v_cofins    REAL,
     v_ipi       REAL,
     PRIMARY KEY (chave, n_item),
@@ -48,13 +58,13 @@ CREATE TABLE IF NOT EXISTS cte (
     data                  TEXT,
     operacao              TEXT,
     cnpj_transportadora   TEXT,
-    tipo_doc_transportadora TEXT,
+    tipo_doc_transportadora TEXT,  -- 'CNPJ' ou 'CPF'
     transportadora        TEXT,
     doc_remetente         TEXT,
-    tipo_doc_remetente    TEXT,
+    tipo_doc_remetente    TEXT,    -- 'CNPJ' ou 'CPF'
     remetente             TEXT,
     doc_destinatario      TEXT,
-    tipo_doc_destinatario TEXT,
+    tipo_doc_destinatario TEXT,    -- 'CNPJ' ou 'CPF'
     destinatario          TEXT,
     valor_frete           REAL,
     icms_cte              REAL,
@@ -67,7 +77,7 @@ CREATE TABLE IF NOT EXISTS cancelamentos (
     status           TEXT,
     protocolo        TEXT,
     cnpj_emitente    TEXT,
-    tipo_doc_emitente TEXT,
+    tipo_doc_emitente TEXT,   -- 'CNPJ' ou 'CPF'
     justificativa    TEXT,
     PRIMARY KEY (chave_vinculada, protocolo)
 );
@@ -77,10 +87,10 @@ CREATE TABLE IF NOT EXISTS nfse (
     numero           INTEGER,
     data             TEXT,
     cnpj_prestador   TEXT,
-    tipo_doc_prestador TEXT,
+    tipo_doc_prestador TEXT,  -- 'CNPJ' ou 'CPF'
     razao_prestador  TEXT,
     cnpj_tomador     TEXT,
-    tipo_doc_tomador TEXT,
+    tipo_doc_tomador TEXT,    -- 'CNPJ' ou 'CPF'
     razao_tomador    TEXT,
     valor_total      REAL,
     aliq_issqn       REAL,
@@ -89,17 +99,18 @@ CREATE TABLE IF NOT EXISTS nfse (
     irrf             REAL,
     cpp              REAL,
     csrf             REAL,
-    valor_liquido    REAL
+    valor_liquido    REAL,
+    cod_trib_nacional TEXT
 );
 
 CREATE TABLE IF NOT EXISTS nfse_abrasf (
     numero              INTEGER,
     data                TEXT,
     cnpj_prestador      TEXT,
-    tipo_doc_prestador  TEXT,
+    tipo_doc_prestador  TEXT,  -- 'CNPJ' ou 'CPF'
     razao_prestador     TEXT,
     cnpj_tomador        TEXT,
-    tipo_doc_tomador    TEXT,
+    tipo_doc_tomador    TEXT,  -- 'CNPJ' ou 'CPF'
     razao_tomador       TEXT,
     valor_total         REAL,
     aliq_issqn          REAL,
